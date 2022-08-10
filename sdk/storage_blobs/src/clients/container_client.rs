@@ -3,10 +3,14 @@ use azure_core::{
     error::{Error, ErrorKind},
     headers::Headers,
     prelude::*,
-    Body, Method, Request, Response, Url,
+    Body, Method, Pipeline, Request, Response, TimeoutPolicy, Url,
 };
+use azure_storage::clients::StorageOptions;
 use azure_storage::{
-    core::clients::{ServiceType, StorageClient, StorageCredentials},
+    core::clients::storage_client::{
+        finalize_request, get_endpoint_uri, new_pipeline_from_options,
+    },
+    core::clients::{ServiceType, StorageCredentials},
     prelude::BlobSasPermissions,
     shared_access_signature::{
         service_sas::{BlobSharedAccessSignature, BlobSignedResource},
@@ -15,30 +19,80 @@ use azure_storage::{
 };
 use time::OffsetDateTime;
 
-pub trait AsContainerClient {
-    fn container_client(&self, container_name: impl Into<String>) -> ContainerClient;
+#[derive(Clone, Debug)]
+pub struct ContainerClientBuilder {
+    storage_credentials: Option<StorageCredentials>,
+    storage_account: String,
+    container: String,
+    storage_options: StorageOptions,
 }
 
-impl AsContainerClient for StorageClient {
-    fn container_client(&self, container_name: impl Into<String>) -> ContainerClient {
-        ContainerClient::new(self.clone(), container_name.into())
+impl ContainerClientBuilder {
+    #[must_use]
+    pub fn new(account: impl Into<String>, container: impl Into<String>) -> Self {
+        let storage_account = account.into();
+        let container = container.into();
+        Self {
+            storage_credentials: None,
+            storage_account,
+            container,
+            storage_options: StorageOptions::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn credentials(mut self, storage_credentials: impl Into<StorageCredentials>) -> Self {
+        self.storage_credentials = Some(storage_credentials.into());
+        self
+    }
+
+    #[must_use]
+    pub fn retry(mut self, retry: impl Into<azure_core::RetryOptions>) -> Self {
+        self.storage_options.options = self.storage_options.options.retry(retry);
+        self
+    }
+
+    #[must_use]
+    pub fn transport(mut self, transport: impl Into<azure_core::TransportOptions>) -> Self {
+        self.storage_options.options = self.storage_options.options.transport(transport);
+        self
+    }
+
+    #[must_use]
+    pub fn timeout(mut self, timeout: impl Into<TimeoutPolicy>) -> Self {
+        let timeout = timeout.into();
+        self.storage_options.timeout_policy = timeout;
+        self
+    }
+
+    pub fn build(self) -> ContainerClient {
+        // TODO: Make this an error?
+        let storage_credentials = self.storage_credentials.unwrap();
+        let pipeline = new_pipeline_from_options(self.storage_options, storage_credentials.clone());
+        let url = get_endpoint_uri(None, &self.storage_account, "blob")
+            .unwrap()
+            .join(&self.container)
+            .unwrap();
+        ContainerClient {
+            storage_account: self.storage_account,
+            storage_credentials,
+            container_name: self.container,
+            url,
+            pipeline,
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ContainerClient {
-    storage_client: StorageClient,
+    storage_account: String,
+    storage_credentials: StorageCredentials,
     container_name: String,
+    url: Url,
+    pipeline: Pipeline,
 }
 
 impl ContainerClient {
-    pub(crate) fn new(storage_client: StorageClient, container_name: String) -> Self {
-        Self {
-            storage_client,
-            container_name,
-        }
-    }
-
     pub fn create(&self) -> CreateBuilder {
         CreateBuilder::new(self.clone())
     }
@@ -86,22 +140,15 @@ impl ContainerClient {
         &self.container_name
     }
 
-    pub fn storage_client(&self) -> &StorageClient {
-        &self.storage_client
-    }
-
     pub fn shared_access_signature(
         &self,
         permissions: BlobSasPermissions,
         expiry: OffsetDateTime,
     ) -> azure_core::Result<BlobSharedAccessSignature> {
-        let canonicalized_resource = format!(
-            "/blob/{}/{}",
-            self.storage_client().account(),
-            self.container_name(),
-        );
+        let canonicalized_resource =
+            format!("/blob/{}/{}", &self.storage_account, self.container_name(),);
 
-        match self.storage_client().storage_credentials() {
+        match &self.storage_credentials {
             StorageCredentials::Key(_, key) => Ok(
                 BlobSharedAccessSignature::new(key.to_string(), canonicalized_resource, permissions, expiry, BlobSignedResource::Container),
             ),
@@ -111,18 +158,17 @@ impl ContainerClient {
         }
     }
 
-    pub fn generate_signed_container_url<T>(&self, signature: &T) -> azure_core::Result<url::Url>
+    pub fn generate_signed_container_url<T>(&self, signature: &T) -> Url
     where
         T: SasToken,
     {
-        let mut url = self.url()?;
+        let mut url = self.url();
         url.set_query(Some(&signature.token()));
-        Ok(url)
+        url
     }
 
-    pub(crate) fn url(&self) -> azure_core::Result<url::Url> {
-        self.storage_client
-            .blob_url_with_segments(Some(self.container_name.as_str()).into_iter())
+    pub(crate) fn url(&self) -> Url {
+        self.url.clone()
     }
 
     pub(crate) async fn send(
@@ -130,8 +176,8 @@ impl ContainerClient {
         context: &mut Context,
         request: &mut Request,
     ) -> azure_core::Result<Response> {
-        self.storage_client
-            .send(context, request, ServiceType::Blob)
+        self.pipeline
+            .send(context.insert(ServiceType::Blob), request)
             .await
     }
 
@@ -142,8 +188,7 @@ impl ContainerClient {
         headers: Headers,
         request_body: Option<Body>,
     ) -> azure_core::Result<Request> {
-        self.storage_client
-            .finalize_request(url, method, headers, request_body)
+        finalize_request(url, method, headers, request_body)
     }
 }
 

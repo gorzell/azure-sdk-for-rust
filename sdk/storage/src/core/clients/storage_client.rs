@@ -530,7 +530,39 @@ fn get_sas_token_parms(sas_token: &str) -> azure_core::Result<Vec<(String, Strin
         .collect())
 }
 
-fn get_endpoint_uri(
+pub fn finalize_request(
+    url: Url,
+    method: Method,
+    headers: Headers,
+    request_body: Option<Body>,
+) -> azure_core::Result<Request> {
+    let dt = OffsetDateTime::now_utc();
+    let time = date::to_rfc1123(&dt);
+
+    let mut request = Request::new(url, method);
+    for (k, v) in headers {
+        request.insert_header(k, v);
+    }
+
+    // let's add content length to avoid "chunking" errors.
+    match request_body {
+        Some(ref b) => request.insert_header(CONTENT_LENGTH, b.len().to_string()),
+        None => request.insert_header(CONTENT_LENGTH, "0"),
+    };
+
+    request.insert_header(MS_DATE, time);
+    request.insert_header(VERSION, AZURE_VERSION);
+
+    if let Some(request_body) = request_body {
+        request.set_body(request_body);
+    } else {
+        request.set_body(azure_core::EMPTY_BODY);
+    };
+
+    Ok(request)
+}
+
+pub fn get_endpoint_uri(
     url: Option<&str>,
     account: &str,
     endpoint_type: &str,
@@ -548,7 +580,10 @@ fn get_endpoint_uri(
 }
 
 /// Create a Pipeline from StorageOptions
-fn new_pipeline_from_options(options: StorageOptions, credentials: StorageCredentials) -> Pipeline {
+pub fn new_pipeline_from_options(
+    options: StorageOptions,
+    credentials: StorageCredentials,
+) -> Pipeline {
     let auth_policy: Arc<dyn azure_core::Policy> = Arc::new(AuthorizationPolicy::new(credentials));
 
     // The `AuthorizationPolicy` must be the **last** retry policy.
@@ -570,12 +605,12 @@ fn new_pipeline_from_options(options: StorageOptions, credentials: StorageCreden
 
 #[derive(Debug, Clone, Default)]
 pub struct StorageOptions {
-    options: ClientOptions,
-    timeout_policy: TimeoutPolicy,
+    pub options: ClientOptions,
+    pub timeout_policy: TimeoutPolicy,
 }
 
 impl StorageOptions {
-    fn new() -> StorageOptions {
+    pub fn new() -> StorageOptions {
         Self::default()
     }
 

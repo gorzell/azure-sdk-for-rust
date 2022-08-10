@@ -264,10 +264,6 @@ impl BlobClient {
         BlobLeaseClient::new(self.clone(), lease_id)
     }
 
-    pub fn storage_client(&self) -> &StorageClient {
-        self.container_client.storage_client()
-    }
-
     pub fn container_client(&self) -> &ContainerClient {
         &self.container_client
     }
