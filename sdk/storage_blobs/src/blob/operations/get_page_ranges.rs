@@ -1,7 +1,7 @@
 use crate::{blob::PageRangeList, prelude::*};
-use azure_core::{collect_pinned_stream, headers::*, prelude::*, RequestId};
-use chrono::{DateTime, Utc};
+use azure_core::{headers::*, prelude::*, RequestId};
 use std::str::from_utf8;
+use time::OffsetDateTime;
 
 operation! {
     GetPageRanges,
@@ -34,7 +34,7 @@ impl GetPageRangesBuilder {
             let response = self.client.send(&mut self.context, &mut request).await?;
 
             let (_, headers, body) = response.deconstruct();
-            let body = collect_pinned_stream(body).await?;
+            let body = body.collect().await?;
 
             GetPageRangesResponse::from_response(&headers, &body)
         })
@@ -44,9 +44,9 @@ impl GetPageRangesBuilder {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetPageRangesResponse {
     pub etag: String,
-    pub last_modified: DateTime<Utc>,
+    pub last_modified: OffsetDateTime,
     pub request_id: RequestId,
-    pub date: DateTime<Utc>,
+    pub date: OffsetDateTime,
     pub page_list: PageRangeList,
 }
 
