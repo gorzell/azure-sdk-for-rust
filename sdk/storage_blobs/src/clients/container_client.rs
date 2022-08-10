@@ -28,6 +28,9 @@ pub struct ContainerClientBuilder {
 }
 
 impl ContainerClientBuilder {
+    // TODO: I actually think it would be best to have the credentails as part of this signature, which would make them "required"
+    // Then rather than having builder methods do so all the credential conversions as part of the Client we just add the functionality
+    // StorageCredentials itself.
     #[must_use]
     pub fn new(account: impl Into<String>, container: impl Into<String>) -> Self {
         let storage_account = account.into();
