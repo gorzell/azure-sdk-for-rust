@@ -170,7 +170,7 @@ impl ContainerClient {
         url
     }
 
-    pub(crate) fn url(&self) -> Url {
+    pub fn url(&self) -> Url {
         self.url.clone()
     }
 
