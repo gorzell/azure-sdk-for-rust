@@ -20,6 +20,7 @@ use azure_storage::core::{
 use futures::StreamExt;
 use time::OffsetDateTime;
 use url::Url;
+use azure_storage::clients::url_with_segments;
 
 /// A client for handling blobs
 ///
@@ -212,12 +213,12 @@ impl BlobClient {
     ) -> azure_core::Result<BlobSharedAccessSignature> {
         let canonicalized_resource = format!(
             "/blob/{}/{}/{}",
-            self.container_client.storage_client().account(),
+            self.container_client.account_name(),
             self.container_client.container_name(),
             self.blob_name()
         );
 
-        match self.storage_client().storage_credentials() {
+        match self.container_client.storage_credentials() {
             StorageCredentials::Key(ref _account, ref key) => Ok(
                 BlobSharedAccessSignature::new(key.to_string(), canonicalized_resource, permissions, expiry, BlobSignedResource::Blob)
             ),
@@ -270,7 +271,7 @@ impl BlobClient {
 
     /// Full URL for the blob.
     pub fn url(&self) -> azure_core::Result<url::Url> {
-        StorageClient::url_with_segments(self.container_client.url()?, self.blob_name.split('/'))
+        url_with_segments(self.container_client.url(), self.blob_name.split('/'))
     }
 
     pub(crate) fn finalize_request(

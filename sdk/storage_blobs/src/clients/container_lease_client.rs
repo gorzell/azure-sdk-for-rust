@@ -1,6 +1,5 @@
 use crate::{container::operations::*, prelude::*};
 use azure_core::{headers::Headers, prelude::*, Body, Context, Method, Request, Response, Url};
-use azure_storage::core::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ContainerLeaseClient {
@@ -39,16 +38,12 @@ impl ContainerLeaseClient {
         self.lease_id
     }
 
-    pub fn storage_client(&self) -> &StorageClient {
-        self.container_client.storage_client()
-    }
-
     pub fn container_client(&self) -> &ContainerClient {
         &self.container_client
     }
 
-    pub(crate) fn url(&self) -> azure_core::Result<url::Url> {
-        self.container_client.url()
+    pub(crate) fn url(&self) -> url::Url {
+        self.container_client.url().clone()
     }
 
     pub(crate) async fn send(

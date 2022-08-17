@@ -5,12 +5,9 @@ use azure_core::{
     prelude::*,
     Body, Method, Pipeline, Request, Response, TimeoutPolicy, Url,
 };
-use azure_storage::clients::StorageOptions;
+use azure_storage::clients::{CloudLocation, finalize_request, new_pipeline_from_options, StorageOptions};
 use azure_storage::{
-    core::clients::storage_client::{
-        finalize_request, get_endpoint_uri, new_pipeline_from_options,
-    },
-    core::clients::{ServiceType, StorageCredentials},
+    core::clients::{StorageCredentials},
     prelude::BlobSasPermissions,
     shared_access_signature::{
         service_sas::{BlobSharedAccessSignature, BlobSignedResource},
@@ -21,31 +18,37 @@ use time::OffsetDateTime;
 
 #[derive(Clone, Debug)]
 pub struct ContainerClientBuilder {
-    storage_credentials: Option<StorageCredentials>,
-    storage_account: String,
+    cloud_location: CloudLocation,
     container: String,
     storage_options: StorageOptions,
 }
 
 impl ContainerClientBuilder {
-    // TODO: I actually think it would be best to have the credentails as part of this signature, which would make them "required"
-    // Then rather than having builder methods do so all the credential conversions as part of the Client we just add the functionality
-    // StorageCredentials itself.
     #[must_use]
-    pub fn new(account: impl Into<String>, container: impl Into<String>) -> Self {
-        let storage_account = account.into();
+    pub fn new(account: impl Into<String>, container: impl Into<String>, storage_credentials: impl Into<StorageCredentials>) -> Self {
+        let account = account.into();
+        let container = container.into();
+        let storage_credentials = storage_credentials.into();
+        let cloud_location = CloudLocation::Public {
+            account,
+            storage_credentials,
+        };
+        Self::with_location(cloud_location, container)
+    }
+
+    #[must_use]
+    pub fn with_location(cloud_location: CloudLocation, container: impl Into<String>) -> Self {
         let container = container.into();
         Self {
-            storage_credentials: None,
-            storage_account,
+            cloud_location,
             container,
-            storage_options: StorageOptions::new(),
+            storage_options: StorageOptions::default(),
         }
     }
 
     #[must_use]
-    pub fn credentials(mut self, storage_credentials: impl Into<StorageCredentials>) -> Self {
-        self.storage_credentials = Some(storage_credentials.into());
+    pub fn cloud_location(mut self, cloud_location: CloudLocation) -> Self {
+        self.cloud_location = cloud_location;
         self
     }
 
@@ -69,16 +72,15 @@ impl ContainerClientBuilder {
     }
 
     pub fn build(self) -> ContainerClient {
-        // TODO: Make this an error?
-        let storage_credentials = self.storage_credentials.unwrap();
+        // TODO: Errors?
         let pipeline = new_pipeline_from_options(self.storage_options, storage_credentials.clone());
-        let url = get_endpoint_uri(None, &self.storage_account, "blob")
+        let url = self.cloud_location.url("blob")
             .unwrap()
             .join(&self.container)
             .unwrap();
         ContainerClient {
-            storage_account: self.storage_account,
-            storage_credentials,
+            storage_account: self.cloud_location.storage_account().to_string(),
+            storage_credentials: self.cloud_location.storage_credentials(),
             container_name: self.container,
             url,
             pipeline,
@@ -143,6 +145,14 @@ impl ContainerClient {
         &self.container_name
     }
 
+    pub fn account_name(&self) -> &str {
+        &self.storage_account
+    }
+
+    pub fn storage_credentials(&self) -> &StorageCredentials {
+        &self.storage_credentials
+    }
+
     pub fn shared_access_signature(
         &self,
         permissions: BlobSasPermissions,
@@ -180,7 +190,7 @@ impl ContainerClient {
         request: &mut Request,
     ) -> azure_core::Result<Response> {
         self.pipeline
-            .send(context.insert(ServiceType::Blob), request)
+            .send(context, request)
             .await
     }
 

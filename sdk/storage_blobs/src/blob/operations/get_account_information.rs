@@ -1,11 +1,10 @@
-use crate::clients::ServiceType;
-use crate::core::prelude::*;
-use crate::headers::CommonStorageResponseHeaders;
+use azure_storage::headers::CommonStorageResponseHeaders;
 use azure_core::headers::{account_kind_from_headers, sku_name_from_headers, Headers};
+use crate::clients::ContainerClient;
 
 operation! {
     GetAccountInformation,
-    client: StorageClient,
+    client: ContainerClient,
 }
 
 impl GetAccountInformationBuilder {
@@ -19,7 +18,7 @@ impl GetAccountInformationBuilder {
 
             let response = self
                 .client
-                .send(&mut self.context, &mut request, ServiceType::Blob)
+                .send(&mut self.context, &mut request)
                 .await?;
 
             GetAccountInformationResponse::try_from(response.headers())
@@ -35,7 +34,7 @@ pub struct GetAccountInformationResponse {
 }
 
 impl GetAccountInformationResponse {
-    pub(crate) fn try_from(headers: &Headers) -> azure_core::Result<GetAccountInformationResponse> {
+    pub fn try_from(headers: &Headers) -> azure_core::Result<GetAccountInformationResponse> {
         let common = CommonStorageResponseHeaders::try_from(headers)?;
         let sku_name = sku_name_from_headers(headers)?;
         let account_kind = account_kind_from_headers(headers)?;
