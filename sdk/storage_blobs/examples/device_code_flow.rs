@@ -1,5 +1,5 @@
 use azure_identity::{device_code_flow, refresh_token};
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use futures::stream::StreamExt;
 use oauth2::ClientId;
@@ -71,11 +71,11 @@ async fn main() -> azure_core::Result<()> {
     // this example we are creating an Azure Storage client
     // using the access token.
 
-    let storage_client = StorageClient::new_bearer_token(
+    let blob_service_client = BlobServiceClientBuilder::new(
         &storage_account_name,
-        authorization.access_token().secret(),
-    );
-    let blob_service_client = storage_client.blob_service_client();
+        StorageCredentials::BearerToken(authorization.access_token().secret().into()),
+    )
+    .build();
 
     // now we enumerate the containers in the
     // specified storage account.

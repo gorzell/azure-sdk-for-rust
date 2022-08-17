@@ -3,6 +3,7 @@ use crate::{
     prelude::*,
 };
 use azure_core::{headers::*, prelude::*, RequestId};
+use azure_storage::clients::finalize_request;
 use azure_storage::core::{copy_id_from_headers, CopyId};
 use std::convert::{TryFrom, TryInto};
 use time::OffsetDateTime;
@@ -50,9 +51,7 @@ impl CopyBlobBuilder {
                     .unwrap_or(RehydratePriority::Standard),
             );
 
-            let mut request =
-                self.client
-                    .finalize_request(url, azure_core::Method::Put, headers, None)?;
+            let mut request = finalize_request(url, azure_core::Method::Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
 

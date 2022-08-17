@@ -1,6 +1,8 @@
-use azure_storage::headers::CommonStorageResponseHeaders;
-use azure_core::headers::{account_kind_from_headers, sku_name_from_headers, Headers};
 use crate::clients::ContainerClient;
+use azure_core::headers::{account_kind_from_headers, sku_name_from_headers, Headers};
+use azure_core::Method;
+use azure_storage::clients::finalize_request;
+use azure_storage::headers::CommonStorageResponseHeaders;
 
 operation! {
     GetAccountInformation,
@@ -10,16 +12,14 @@ operation! {
 impl GetAccountInformationBuilder {
     pub fn into_future(mut self) -> GetAccountInformation {
         Box::pin(async move {
-            let mut request = self.client.blob_storage_request(azure_core::Method::Get)?;
-
+            let mut url = self.client.url();
             for (k, v) in [("restype", "account"), ("comp", "properties")].iter() {
-                request.url_mut().query_pairs_mut().append_pair(k, v);
+                url.query_pairs_mut().append_pair(k, v);
             }
 
-            let response = self
-                .client
-                .send(&mut self.context, &mut request)
-                .await?;
+            let mut request = finalize_request(url, Method::Get, Headers::new(), None)?;
+
+            let response = self.client.send(&mut self.context, &mut request).await?;
 
             GetAccountInformationResponse::try_from(response.headers())
         })

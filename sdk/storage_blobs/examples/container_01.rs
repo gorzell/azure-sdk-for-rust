@@ -1,5 +1,5 @@
 use azure_core::{date, prelude::*};
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use std::time::Duration;
 use time::OffsetDateTime;
@@ -16,8 +16,12 @@ async fn main() -> azure_core::Result<()> {
         .nth(1)
         .expect("please specify container name as command line parameter");
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
-    let container_client = storage_client.container_client(container_name);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container_name,
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
 
     let mut metadata = Metadata::new();
     metadata.insert("prova".to_owned(), "pollo".to_owned());

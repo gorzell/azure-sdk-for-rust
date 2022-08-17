@@ -1,4 +1,4 @@
-use azure_storage::core::prelude::*;
+use azure_storage::clients::CloudLocation;
 use azure_storage_blobs::prelude::*;
 use futures::StreamExt;
 
@@ -7,8 +7,14 @@ async fn main() -> azure_core::Result<()> {
     env_logger::init();
 
     // this is how you use the emulator.
-    let storage_account = StorageClient::new_emulator_default();
-    let container_client = storage_account.container_client("emulcont");
+    let container_client = ContainerClientBuilder::with_location(
+        CloudLocation::Emulator {
+            address: "127.0.0.1".to_string(),
+            port: 10000,
+        },
+        "emulcont",
+    )
+    .build();
 
     // create container
     container_client

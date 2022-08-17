@@ -6,6 +6,7 @@ use azure_core::{
     prelude::*,
     Pageable, RequestId, Response as AzureResponse,
 };
+use azure_storage::clients::finalize_request;
 use azure_storage::xml::read_xml;
 use time::OffsetDateTime;
 
@@ -31,7 +32,7 @@ impl ListBlobsBuilder {
             let this = self.clone();
             let mut ctx = self.context.clone();
             async move {
-                let mut url = this.client.url()?;
+                let mut url = this.client.url();
 
                 url.query_pairs_mut().append_pair("restype", "container");
                 url.query_pairs_mut().append_pair("comp", "list");
@@ -74,9 +75,7 @@ impl ListBlobsBuilder {
                         .append_pair("include", &optional_includes.join(","));
                 }
 
-                let mut request =
-                    this.client
-                        .finalize_request(url, Method::Get, Headers::new(), None)?;
+                let mut request = finalize_request(url, Method::Get, Headers::new(), None)?;
 
                 let response = this.client.send(&mut ctx, &mut request).await?;
 

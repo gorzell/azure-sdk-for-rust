@@ -4,6 +4,7 @@ use azure_core::{
     headers::{date_from_headers, request_id_from_headers, Headers},
     Method, RequestId,
 };
+use azure_storage::clients::finalize_request;
 use std::convert::{TryFrom, TryInto};
 use time::OffsetDateTime;
 
@@ -27,9 +28,7 @@ impl SetTagsBuilder {
             headers.add(self.if_tags);
             let body = self.tags.to_xml()?;
 
-            let mut request =
-                self.client
-                    .finalize_request(url, Method::Put, headers, Some(body.into()))?;
+            let mut request = finalize_request(url, Method::Put, headers, Some(body.into()))?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
             response.headers().try_into()

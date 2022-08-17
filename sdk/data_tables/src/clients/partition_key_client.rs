@@ -1,6 +1,5 @@
 use crate::{operations::*, prelude::*, transaction::TransactionOperations};
 use azure_core::{headers::Headers, Body, Context, Method, Request, Response, Url};
-use azure_storage::core::clients::StorageClient;
 
 #[derive(Debug, Clone)]
 pub struct PartitionKeyClient {
@@ -30,10 +29,6 @@ impl PartitionKeyClient {
 
     pub(crate) fn table_client(&self) -> &TableClient {
         &self.table_client
-    }
-
-    pub(crate) fn storage_client(&self) -> &StorageClient {
-        self.table_client.storage_client()
     }
 
     pub(crate) fn finalize_request(

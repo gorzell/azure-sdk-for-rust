@@ -1,5 +1,4 @@
 use azure_storage_blobs::container::PublicAccess;
-use azure_storage_blobs::prelude::{AsBlobServiceClient, AsContainerClient};
 use bytes::Bytes;
 use futures::StreamExt;
 use log::trace;

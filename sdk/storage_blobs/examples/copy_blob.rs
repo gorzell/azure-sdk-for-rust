@@ -1,5 +1,8 @@
 use azure_core::date;
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
+use azure_storage::prelude::{
+    AccountSasPermissions, AccountSasResource, AccountSasResourceType, SasProtocol, SasToken,
+};
 use azure_storage_blobs::prelude::*;
 use time::OffsetDateTime;
 
@@ -29,21 +32,29 @@ async fn main() -> azure_core::Result<()> {
         .nth(4)
         .expect("please specify destination blob name as fourth command line parameter");
 
-    let source_storage_client = StorageClient::new_access_key(&source_account, &source_access_key);
-    let source_blob = source_storage_client
-        .container_client(&source_container_name)
-        .blob_client(&source_blob_name);
+    let source_blob = ContainerClientBuilder::new(
+        &source_account,
+        &source_container_name,
+        StorageCredentials::Key(source_account.clone(), source_access_key),
+    )
+    .build()
+    .blob_client(&source_blob_name);
 
-    let destination_blob =
-        StorageClient::new_access_key(&destination_account, &destination_access_key)
-            .container_client(&destination_container_name)
-            .blob_client(&destination_blob_name);
+    let destination_blob = ContainerClientBuilder::new(
+        &destination_account,
+        &destination_container_name,
+        StorageCredentials::Key(destination_account.clone(), destination_access_key),
+    )
+    .build()
+    .blob_client(&destination_blob_name);
 
     // let's get a SAS key for the source
     let sas_url = {
         let now = OffsetDateTime::now_utc();
         let later = now + date::duration_from_hours(1);
-        let sas = source_storage_client
+        let sas = source_blob
+            .container_client()
+            .storage_credentials()
             .shared_access_signature(
                 AccountSasResource::Blob,
                 AccountSasResourceType::Object,

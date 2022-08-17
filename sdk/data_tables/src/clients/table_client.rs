@@ -1,6 +1,5 @@
 use crate::{clients::*, operations::*};
 use azure_core::{headers::Headers, Body, Context, Method, Request, Response, Url};
-use azure_storage::clients::StorageClient;
 use serde::{de::DeserializeOwned, Serialize};
 
 #[derive(Debug, Clone)]
@@ -43,10 +42,6 @@ impl TableClient {
 
     pub(crate) fn url(&self) -> &url::Url {
         self.table_service_client.url()
-    }
-
-    pub(crate) fn storage_client(&self) -> &StorageClient {
-        self.table_service_client.storage_client()
     }
 
     pub fn partition_key_client<PK: Into<String>>(&self, partition_key: PK) -> PartitionKeyClient {

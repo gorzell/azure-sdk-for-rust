@@ -3,6 +3,7 @@ use azure_core::{
     error::Error, headers::*, prelude::*, Pageable, RequestId, Response as AzureResponse,
     ResponseBody,
 };
+use azure_storage::clients::finalize_request;
 use time::OffsetDateTime;
 
 const DEFAULT_CHUNK_SIZE: u64 = 0x1000 * 0x1000;
@@ -47,9 +48,7 @@ impl GetBlobBuilder {
                 headers.add(this.if_match.clone());
                 headers.add(this.if_tags.clone());
 
-                let mut request =
-                    this.client
-                        .finalize_request(url, azure_core::Method::Get, headers, None)?;
+                let mut request = finalize_request(url, azure_core::Method::Get, headers, None)?;
 
                 let response = this.client.send(&mut ctx, &mut request).await?;
 

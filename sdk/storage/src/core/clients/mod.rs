@@ -1,12 +1,14 @@
+use crate::authorization_policy::AuthorizationPolicy;
+use crate::prelude::{AccountSasPermissions, AccountSasResource, AccountSasResourceType};
+use crate::shared_access_signature::account_sas::AccountSharedAccessSignature;
+use azure_core::auth::TokenCredential;
+use azure_core::error::{Error, ErrorKind, ResultExt};
+use azure_core::headers::{HeaderValue, Headers, CONTENT_LENGTH, MS_DATE, VERSION};
+use azure_core::request_options::Timeout;
+use azure_core::{date, Body, ClientOptions, Method, Pipeline, Request, TimeoutPolicy};
 use std::sync::Arc;
 use time::OffsetDateTime;
 use url::Url;
-use azure_core::{Body, ClientOptions, date, Method, Pipeline, Request, TimeoutPolicy};
-use azure_core::auth::TokenCredential;
-use azure_core::error::{Error, ErrorKind, ResultExt};
-use azure_core::headers::{CONTENT_LENGTH, Headers, HeaderValue, MS_DATE, VERSION};
-use azure_core::request_options::Timeout;
-use crate::authorization_policy::AuthorizationPolicy;
 
 /// The well-known account used by Azurite and the legacy Azure Storage Emulator.
 /// https://docs.microsoft.com/azure/storage/common/storage-use-azurite#well-known-storage-account-and-key
@@ -46,6 +48,23 @@ impl std::fmt::Debug for StorageCredentials {
                 .debug_struct("StorageCredentials")
                 .field("credential", &"TokenCredential")
                 .finish(),
+        }
+    }
+}
+
+impl StorageCredentials {
+    pub fn shared_access_signature(
+        &self,
+        resource: AccountSasResource,
+        resource_type: AccountSasResourceType,
+        expiry: OffsetDateTime,
+        permissions: AccountSasPermissions,
+    ) -> azure_core::Result<AccountSharedAccessSignature> {
+        match &self {
+            StorageCredentials::Key(account, key) => {
+                Ok(AccountSharedAccessSignature::new(account.clone(), key.clone(), resource, resource_type, expiry, permissions))
+            }
+            _ => Err(Error::message(ErrorKind::Other, "failed shared access signature generation. SAS can be generated only from key and account clients")),
         }
     }
 }
@@ -93,39 +112,58 @@ impl CloudLocation {
     pub fn url(&self, storage_type: impl Into<String>) -> azure_core::Result<Url> {
         let storage_type = storage_type.into();
         match self {
-            CloudLocation::Public { account, .. } => {
-                Url::parse(format!("https://{account}.{storage_type}.core.windows.net").as_str()).with_context(ErrorKind::DataConversion, || {
-                    format!("failed to parse url: https://{account}.{storage_type}.core.windows.net")
-                })
-            }
-            CloudLocation::China { account, .. } => Url::parse(format!("https://{account}.{storage_type}.core.chinacloudapi.cn").as_str()).with_context(ErrorKind::DataConversion, || {
-                format!("failed to parse url: https://{account}.{storage_type}.core.chinacloudapi.cn")
+            CloudLocation::Public { account, .. } => Url::parse(
+                format!("https://{account}.{storage_type}.core.windows.net").as_str(),
+            )
+            .with_context(ErrorKind::DataConversion, || {
+                format!("failed to parse url: https://{account}.{storage_type}.core.windows.net")
+            }),
+            CloudLocation::China { account, .. } => Url::parse(
+                format!("https://{account}.{storage_type}.core.chinacloudapi.cn").as_str(),
+            )
+            .with_context(ErrorKind::DataConversion, || {
+                format!(
+                    "failed to parse url: https://{account}.{storage_type}.core.chinacloudapi.cn"
+                )
             }),
             CloudLocation::Custom { uri, .. } => Ok(uri.clone()),
-            CloudLocation::Emulator { address, port } => Url::parse(format!("https://{address}:{port}").as_str()).with_context(ErrorKind::DataConversion, || {
-                format!("failed to parse url: https://{address}:{port}")
-            }),
+            CloudLocation::Emulator { address, port } => {
+                Url::parse(format!("https://{address}:{port}").as_str())
+                    .with_context(ErrorKind::DataConversion, || {
+                        format!("failed to parse url: https://{address}:{port}")
+                    })
+            }
         }
     }
 
     pub fn storage_credentials(&self) -> StorageCredentials {
         match self {
-            CloudLocation::Public { storage_credentials, .. } => storage_credentials.clone(),
-            CloudLocation::China { storage_credentials, .. } => storage_credentials.clone(),
-            CloudLocation::Emulator { .. } => {
-               StorageCredentials::Key(EMULATOR_ACCOUNT.to_string(), EMULATOR_ACCOUNT_KEY.to_string())
-            }
-            CloudLocation::Custom { storage_credentials, .. } => storage_credentials.clone(),
+            CloudLocation::Public {
+                storage_credentials,
+                ..
+            } => storage_credentials.clone(),
+            CloudLocation::China {
+                storage_credentials,
+                ..
+            } => storage_credentials.clone(),
+            CloudLocation::Emulator { .. } => StorageCredentials::Key(
+                EMULATOR_ACCOUNT.to_string(),
+                EMULATOR_ACCOUNT_KEY.to_string(),
+            ),
+            CloudLocation::Custom {
+                storage_credentials,
+                ..
+            } => storage_credentials.clone(),
         }
     }
 
     pub fn storage_account(&self) -> &str {
-       match self {
-           CloudLocation::Public { account, .. } => account,
-           CloudLocation::China {account, .. } => account,
-           CloudLocation::Emulator { .. } => EMULATOR_ACCOUNT,
-           CloudLocation::Custom { .. } => todo!(),
-       }
+        match self {
+            CloudLocation::Public { account, .. } => account,
+            CloudLocation::China { account, .. } => account,
+            CloudLocation::Emulator { .. } => EMULATOR_ACCOUNT,
+            CloudLocation::Custom { .. } => todo!(),
+        }
     }
 }
 
@@ -185,12 +223,9 @@ pub fn finalize_request(
     Ok(request)
 }
 
-pub fn url_with_segments<'a, I>(
-    mut url: url::Url,
-    new_segments: I,
-) -> azure_core::Result<url::Url>
-    where
-        I: IntoIterator<Item = &'a str>,
+pub fn url_with_segments<'a, I>(mut url: url::Url, new_segments: I) -> azure_core::Result<url::Url>
+where
+    I: IntoIterator<Item = &'a str>,
 {
     let original_url = url.clone();
     {

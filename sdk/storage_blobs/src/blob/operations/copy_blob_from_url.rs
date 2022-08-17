@@ -3,6 +3,7 @@ use crate::{
     prelude::*,
 };
 use azure_core::{headers::*, prelude::*, RequestId};
+use azure_storage::clients::finalize_request;
 use azure_storage::{
     core::{copy_id_from_headers, CopyId},
     headers::content_md5_from_headers_optional,
@@ -49,9 +50,7 @@ impl CopyBlobFromUrlBuilder {
             headers.add(self.if_source_match);
             headers.add(self.source_content_md5);
 
-            let mut request =
-                self.client
-                    .finalize_request(url, azure_core::Method::Put, headers, None)?;
+            let mut request = finalize_request(url, azure_core::Method::Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
 

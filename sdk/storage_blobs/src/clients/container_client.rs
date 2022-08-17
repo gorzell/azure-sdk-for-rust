@@ -1,13 +1,12 @@
 use crate::{clients::*, container::operations::*, prelude::PublicAccess};
 use azure_core::{
     error::{Error, ErrorKind},
-    headers::Headers,
     prelude::*,
-    Body, Method, Pipeline, Request, Response, TimeoutPolicy, Url,
+    Pipeline, Request, Response, TimeoutPolicy, Url,
 };
-use azure_storage::clients::{CloudLocation, finalize_request, new_pipeline_from_options, StorageOptions};
+use azure_storage::clients::{new_pipeline_from_options, CloudLocation, StorageOptions};
 use azure_storage::{
-    core::clients::{StorageCredentials},
+    core::clients::StorageCredentials,
     prelude::BlobSasPermissions,
     shared_access_signature::{
         service_sas::{BlobSharedAccessSignature, BlobSignedResource},
@@ -25,7 +24,11 @@ pub struct ContainerClientBuilder {
 
 impl ContainerClientBuilder {
     #[must_use]
-    pub fn new(account: impl Into<String>, container: impl Into<String>, storage_credentials: impl Into<StorageCredentials>) -> Self {
+    pub fn new(
+        account: impl Into<String>,
+        container: impl Into<String>,
+        storage_credentials: impl Into<StorageCredentials>,
+    ) -> Self {
         let account = account.into();
         let container = container.into();
         let storage_credentials = storage_credentials.into();
@@ -73,14 +76,17 @@ impl ContainerClientBuilder {
 
     pub fn build(self) -> ContainerClient {
         // TODO: Errors?
+        let storage_credentials = self.cloud_location.storage_credentials();
         let pipeline = new_pipeline_from_options(self.storage_options, storage_credentials.clone());
-        let url = self.cloud_location.url("blob")
+        let url = self
+            .cloud_location
+            .url("blob")
             .unwrap()
             .join(&self.container)
             .unwrap();
         ContainerClient {
             storage_account: self.cloud_location.storage_account().to_string(),
-            storage_credentials: self.cloud_location.storage_credentials(),
+            storage_credentials,
             container_name: self.container,
             url,
             pipeline,
@@ -189,19 +195,7 @@ impl ContainerClient {
         context: &mut Context,
         request: &mut Request,
     ) -> azure_core::Result<Response> {
-        self.pipeline
-            .send(context, request)
-            .await
-    }
-
-    pub(crate) fn finalize_request(
-        &self,
-        url: Url,
-        method: Method,
-        headers: Headers,
-        request_body: Option<Body>,
-    ) -> azure_core::Result<Request> {
-        finalize_request(url, method, headers, request_body)
+        self.pipeline.send(context, request).await
     }
 }
 

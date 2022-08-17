@@ -1,6 +1,7 @@
 use crate::{container::PublicAccess, prelude::*};
 use azure_core::Method;
 use azure_core::{headers::AsHeaders, headers::Headers, prelude::*};
+use azure_storage::clients::finalize_request;
 
 operation! {
     Create,
@@ -12,7 +13,7 @@ operation! {
 impl CreateBuilder {
     pub fn into_future(mut self) -> Create {
         Box::pin(async move {
-            let mut url = self.client.url()?;
+            let mut url = self.client.url();
 
             url.query_pairs_mut().append_pair("restype", "container");
 
@@ -31,9 +32,7 @@ impl CreateBuilder {
                 headers.insert(name, value);
             }
 
-            let mut request = self
-                .client
-                .finalize_request(url, Method::Put, headers, None)?;
+            let mut request = finalize_request(url, Method::Put, headers, None)?;
 
             let _response = self.client.send(&mut self.context, &mut request).await?;
 

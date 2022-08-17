@@ -1,4 +1,4 @@
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -15,9 +15,12 @@ async fn main() -> azure_core::Result<()> {
     let blob_name = format!("file-{}.txt", Uuid::new_v4());
     let blob_notags_name = format!("file-{}.txt", Uuid::new_v4());
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
-
-    let container_client = storage_client.container_client(&container_name);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container_name,
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
     container_client.create().into_future().await?;
 
     let blob_client = container_client.blob_client(&blob_name);

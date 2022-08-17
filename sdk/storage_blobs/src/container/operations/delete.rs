@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use azure_core::{headers::Headers, prelude::*, Method};
+use azure_storage::clients::finalize_request;
 
 operation! {
     Delete,
@@ -11,7 +12,7 @@ operation! {
 impl DeleteBuilder {
     pub fn into_future(mut self) -> Delete {
         Box::pin(async move {
-            let mut url = self.client.url()?;
+            let mut url = self.client.url();
 
             url.query_pairs_mut().append_pair("restype", "container");
 
@@ -19,9 +20,7 @@ impl DeleteBuilder {
             headers.add(self.lease_id);
             headers.add(self.if_modified_since);
 
-            let mut request = self
-                .client
-                .finalize_request(url, Method::Delete, headers, None)?;
+            let mut request = finalize_request(url, Method::Delete, headers, None)?;
 
             let _response = self.client.send(&mut self.context, &mut request).await?;
 

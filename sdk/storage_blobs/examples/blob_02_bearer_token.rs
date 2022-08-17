@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 
 #[tokio::main]
@@ -21,9 +21,13 @@ async fn main() -> azure_core::Result<()> {
         .nth(4)
         .expect("please specify the bearer token as fourth command line parameter");
 
-    let blob_client = StorageClient::new_bearer_token(&account, bearer_token)
-        .container_client(&container)
-        .blob_client(&blob);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container,
+        StorageCredentials::BearerToken(bearer_token),
+    )
+    .build();
+    let blob_client = container_client.blob_client(&blob);
 
     trace!("Requesting blob");
 
