@@ -1,4 +1,4 @@
-use super::{AzureCliCredential, EnvironmentCredential, ImdsManagedIdentityCredential};
+use super::{AzureCliCredential, ImdsManagedIdentityCredential};
 use azure_core::auth::{TokenCredential, TokenResponse};
 use azure_core::error::{Error, ErrorKind, ResultExt};
 
@@ -52,7 +52,7 @@ impl DefaultAzureCredentialBuilder {
         let mut sources = Vec::<DefaultAzureCredentialEnum>::with_capacity(source_count);
         if self.include_environment_credential {
             sources.push(DefaultAzureCredentialEnum::Environment(
-                EnvironmentCredential::default(),
+                super::EnvironmentCredential::default(),
             ));
         }
         if self.include_managed_identity_credential {
@@ -61,7 +61,9 @@ impl DefaultAzureCredentialBuilder {
             ))
         }
         if self.include_azure_cli_credential {
-            sources.push(DefaultAzureCredentialEnum::AzureCli(AzureCliCredential {}));
+            sources.push(DefaultAzureCredentialEnum::AzureCli(
+                AzureCliCredential::new(),
+            ));
         }
         DefaultAzureCredential::with_sources(sources)
     }
@@ -70,7 +72,7 @@ impl DefaultAzureCredentialBuilder {
 /// Types of TokenCredential supported by DefaultAzureCredential
 pub enum DefaultAzureCredentialEnum {
     /// `TokenCredential` from environment variable.
-    Environment(EnvironmentCredential),
+    Environment(super::EnvironmentCredential),
     /// `TokenCredential` from managed identity that has been assigned in this deployment environment.
     ManagedIdentity(ImdsManagedIdentityCredential),
     /// `TokenCredential` from Azure CLI.
@@ -128,11 +130,11 @@ impl Default for DefaultAzureCredential {
     fn default() -> Self {
         DefaultAzureCredential {
             sources: vec![
-                DefaultAzureCredentialEnum::Environment(EnvironmentCredential::default()),
+                DefaultAzureCredentialEnum::Environment(super::EnvironmentCredential::default()),
                 DefaultAzureCredentialEnum::ManagedIdentity(
                     ImdsManagedIdentityCredential::default(),
                 ),
-                DefaultAzureCredentialEnum::AzureCli(AzureCliCredential {}),
+                DefaultAzureCredentialEnum::AzureCli(AzureCliCredential::new()),
             ],
         }
     }

@@ -16,7 +16,7 @@ edition = "2021"
 futures = "0.3"
 base64 = "0.13"
 reqwest = { version = "0.11", features = ["json"] }
-time = { version = "0.3.10", features = ["serde"] }
+time = "0.3.10"
 const_format = "0.2.13"
 serde_json = "1.0"
 url = "2.2"
@@ -24,11 +24,10 @@ serde = { version = "1.0", features = ["derive"] }
 azure_core = { path = "../core", version = "0.4"}
 
 [dev-dependencies]
-oauth2 = "4.0.0"
 azure_identity = { path = "../identity", default_features = false }
 mockito = "0.31"
 async-trait = "0.1"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 
 [features]
-default = ["azure_core/default"]
+default = ["azure_core/enable_reqwest"]

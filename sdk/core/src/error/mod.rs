@@ -11,7 +11,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// The kind of error
 ///
 /// The classification of error is intentionally fairly coarse.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ErrorKind {
     /// An HTTP status code that was not expected
     HttpResponse {
@@ -131,6 +131,23 @@ impl Error {
                 message: message().into(),
             },
         }
+    }
+
+    /// Wrap this error in additional `message`
+    pub fn context<C>(self, message: C) -> Self
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        Self::full(self.kind().clone(), self, message)
+    }
+
+    /// Wrap this error in additional message
+    pub fn with_context<F, C>(self, f: F) -> Self
+    where
+        F: FnOnce() -> C,
+        C: Into<Cow<'static, str>>,
+    {
+        self.context(f())
     }
 
     /// Get the `ErrorKind` of this `Error`
