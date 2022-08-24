@@ -5,10 +5,10 @@ use crate::{
 };
 use azure_core::{
     error::{Error, ErrorKind},
-    headers::Headers,
     prelude::*,
-    Body, Method, Request, Response, StatusCode,
+    Body, Request, Response, StatusCode,
 };
+use azure_storage::clients::url_with_segments;
 use azure_storage::core::{
     clients::StorageCredentials,
     prelude::*,
@@ -212,12 +212,12 @@ impl BlobClient {
     ) -> azure_core::Result<BlobSharedAccessSignature> {
         let canonicalized_resource = format!(
             "/blob/{}/{}/{}",
-            self.container_client.storage_client().account(),
+            self.container_client.account_name(),
             self.container_client.container_name(),
             self.blob_name()
         );
 
-        match self.storage_client().storage_credentials() {
+        match self.container_client.storage_credentials() {
             StorageCredentials::Key(ref _account, ref key) => Ok(
                 BlobSharedAccessSignature::new(key.to_string(), canonicalized_resource, permissions, expiry, BlobSignedResource::Blob)
             ),
@@ -264,28 +264,13 @@ impl BlobClient {
         BlobLeaseClient::new(self.clone(), lease_id)
     }
 
-    pub fn storage_client(&self) -> &StorageClient {
-        self.container_client.storage_client()
-    }
-
     pub fn container_client(&self) -> &ContainerClient {
         &self.container_client
     }
 
     /// Full URL for the blob.
     pub fn url(&self) -> azure_core::Result<url::Url> {
-        StorageClient::url_with_segments(self.container_client.url()?, self.blob_name.split('/'))
-    }
-
-    pub(crate) fn finalize_request(
-        &self,
-        url: Url,
-        method: Method,
-        headers: Headers,
-        request_body: Option<Body>,
-    ) -> azure_core::Result<Request> {
-        self.container_client
-            .finalize_request(url, method, headers, request_body)
+        url_with_segments(self.container_client.url(), self.blob_name.split('/'))
     }
 
     pub(crate) async fn send(
@@ -300,6 +285,8 @@ impl BlobClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clients::ContainerClientBuilder;
+    use azure_storage::clients::CloudLocation;
 
     struct FakeSas {
         token: String,
@@ -311,12 +298,18 @@ mod tests {
     }
 
     fn build_url(container_name: &str, blob_name: &str, sas: &FakeSas) -> url::Url {
-        let storage_account = StorageClient::new_emulator_default();
-        storage_account
-            .container_client(container_name)
-            .blob_client(blob_name)
-            .generate_signed_blob_url(sas)
-            .expect("build url failed")
+        // TODO: Should there be a helper for the default?
+        ContainerClientBuilder::with_location(
+            CloudLocation::Emulator {
+                address: "127.0.0.1".to_string(),
+                port: 10000,
+            },
+            container_name,
+        )
+        .build()
+        .blob_client(blob_name)
+        .generate_signed_blob_url(sas)
+        .expect("build url failed")
     }
 
     #[test]

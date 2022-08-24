@@ -1,26 +1,25 @@
-use crate::clients::ServiceType;
-use crate::core::prelude::*;
-use crate::headers::CommonStorageResponseHeaders;
+use crate::clients::ContainerClient;
 use azure_core::headers::{account_kind_from_headers, sku_name_from_headers, Headers};
+use azure_core::Method;
+use azure_storage::clients::finalize_request;
+use azure_storage::headers::CommonStorageResponseHeaders;
 
 operation! {
     GetAccountInformation,
-    client: StorageClient,
+    client: ContainerClient,
 }
 
 impl GetAccountInformationBuilder {
     pub fn into_future(mut self) -> GetAccountInformation {
         Box::pin(async move {
-            let mut request = self.client.blob_storage_request(azure_core::Method::Get)?;
-
+            let mut url = self.client.url();
             for (k, v) in [("restype", "account"), ("comp", "properties")].iter() {
-                request.url_mut().query_pairs_mut().append_pair(k, v);
+                url.query_pairs_mut().append_pair(k, v);
             }
 
-            let response = self
-                .client
-                .send(&mut self.context, &mut request, ServiceType::Blob)
-                .await?;
+            let mut request = finalize_request(url, Method::Get, Headers::new(), None)?;
+
+            let response = self.client.send(&mut self.context, &mut request).await?;
 
             GetAccountInformationResponse::try_from(response.headers())
         })
@@ -35,7 +34,7 @@ pub struct GetAccountInformationResponse {
 }
 
 impl GetAccountInformationResponse {
-    pub(crate) fn try_from(headers: &Headers) -> azure_core::Result<GetAccountInformationResponse> {
+    pub fn try_from(headers: &Headers) -> azure_core::Result<GetAccountInformationResponse> {
         let common = CommonStorageResponseHeaders::try_from(headers)?;
         let sku_name = sku_name_from_headers(headers)?;
         let account_kind = account_kind_from_headers(headers)?;

@@ -1,5 +1,6 @@
 use crate::{blob::operations::DeleteBlobResponse, prelude::*};
 use azure_core::{headers::Headers, prelude::*};
+use azure_storage::clients::finalize_request;
 
 operation! {
     DeleteBlobSnapshot,
@@ -23,9 +24,7 @@ impl DeleteBlobSnapshotBuilder {
             let mut headers = Headers::new();
             headers.add(self.lease_id);
 
-            let mut request =
-                self.client
-                    .finalize_request(url, azure_core::Method::Delete, headers, None)?;
+            let mut request = finalize_request(url, azure_core::Method::Delete, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
 

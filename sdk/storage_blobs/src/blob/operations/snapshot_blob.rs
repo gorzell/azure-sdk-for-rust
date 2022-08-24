@@ -6,6 +6,7 @@ use azure_core::{
     Method::Put,
     RequestId,
 };
+use azure_storage::clients::finalize_request;
 use time::OffsetDateTime;
 
 operation! {
@@ -34,7 +35,7 @@ impl SnapshotBlobBuilder {
                 }
             }
 
-            let mut request = self.client.finalize_request(url, Put, headers, None)?;
+            let mut request = finalize_request(url, Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
             response.headers().try_into()

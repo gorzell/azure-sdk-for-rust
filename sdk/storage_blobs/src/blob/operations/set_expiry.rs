@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use azure_core::{headers::*, prelude::*, RequestId, Response};
+use azure_storage::clients::finalize_request;
 use std::convert::{TryFrom, TryInto};
 
 operation! {
@@ -18,9 +19,7 @@ impl SetBlobExpiryBuilder {
             let mut headers = self.blob_expiry.to_headers();
             headers.add(self.lease_id);
 
-            let mut request =
-                self.client
-                    .finalize_request(url, azure_core::Method::Put, headers, None)?;
+            let mut request = finalize_request(url, azure_core::Method::Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
             response.try_into()

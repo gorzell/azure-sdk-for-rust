@@ -1,5 +1,6 @@
 use crate::{blob::operations::put_block::PutBlockResponse, prelude::*};
 use azure_core::{headers::*, prelude::*, Body};
+use azure_storage::clients::finalize_request;
 
 operation! {
     AppendBlock,
@@ -29,7 +30,7 @@ impl AppendBlockBuilder {
             headers.add(self.if_match);
             headers.add(self.lease_id);
 
-            let mut request = self.client.finalize_request(
+            let mut request = finalize_request(
                 url,
                 azure_core::Method::Put,
                 headers,

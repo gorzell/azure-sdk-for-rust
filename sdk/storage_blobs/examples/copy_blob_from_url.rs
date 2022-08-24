@@ -1,4 +1,4 @@
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 
 #[tokio::main]
@@ -22,13 +22,16 @@ async fn main() -> azure_core::Result<()> {
         .nth(4)
         .expect("please specify destination blob name as fourth command line parameter");
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
-    let blob_client = storage_client
-        .container_client(&destination_container)
-        .blob_client(&destination_blob);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &destination_container,
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
+    let blob_client = container_client.blob_client(&destination_blob);
 
-    let source_url = storage_client
-        .blob_storage_url()
+    let source_url = container_client
+        .url()
         .join(&source_container)?
         .join(&source_blob)?;
 

@@ -1,4 +1,4 @@
-use azure_storage::core::prelude::*;
+use azure_storage::clients::{CloudLocation, StorageCredentials};
 use azure_storage_blobs::prelude::*;
 use futures::StreamExt;
 
@@ -14,22 +14,29 @@ async fn main() -> azure_core::Result<()> {
         .nth(1)
         .expect("please specify a non-existing container name as command line parameter");
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container_name,
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
 
-    create_container_and_list(storage_client, &container_name).await?;
+    create_container_and_list(container_client).await?;
 
-    let storage_client = StorageClient::new_emulator_default();
-    create_container_and_list(storage_client, &container_name).await?;
+    let container_client = ContainerClientBuilder::with_location(
+        CloudLocation::Emulator {
+            address: "127.0.0.1".to_string(),
+            port: 10000,
+        },
+        &container_name,
+    )
+    .build();
+    create_container_and_list(container_client).await?;
 
     Ok(())
 }
 
-async fn create_container_and_list(
-    storage_client: StorageClient,
-    container_name: &str,
-) -> azure_core::Result<()> {
-    let container_client = storage_client.container_client(container_name);
-
+async fn create_container_and_list(container_client: ContainerClient) -> azure_core::Result<()> {
     container_client.create().into_future().await?;
 
     // list empty container
@@ -61,7 +68,7 @@ async fn create_container_and_list(
     println!("List blob returned {} blobs.", page.blobs.blobs.len());
 
     container_client.delete().into_future().await?;
-    println!("Container {} deleted", container_name);
+    println!("Container {} deleted", container_client.container_name());
 
     Ok(())
 }

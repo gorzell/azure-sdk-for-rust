@@ -1,5 +1,6 @@
 use azure_core::prelude::*;
 use azure_core::Response as HttpResponse;
+use azure_storage::clients::finalize_request;
 use azure_storage::{headers::CommonStorageResponseHeaders, xml::read_xml};
 
 use crate::prelude::BlobServiceClient;
@@ -19,7 +20,7 @@ impl FindBlobsByTagsBuilder {
             let this = self.clone();
             let mut ctx = self.context.clone();
             async move {
-                let mut url = this.client.storage_client.blob_storage_url().clone();
+                let mut url = this.client.url();
 
                 url.query_pairs_mut().append_pair("comp", "blobs");
                 if let Some(next_marker) = next_marker {
@@ -27,7 +28,7 @@ impl FindBlobsByTagsBuilder {
                         .append_pair("next", next_marker.as_str());
                 }
                 url.query_pairs_mut().append_pair("where", &this.expression);
-                let mut request = this.client.storage_client.finalize_request(
+                let mut request = finalize_request(
                     url,
                     azure_core::Method::Get,
                     azure_core::headers::Headers::new(),

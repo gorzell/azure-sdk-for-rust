@@ -3,7 +3,7 @@ extern crate log;
 
 use azure_core::error::{ErrorKind, ResultExt};
 use azure_identity::{AutoRefreshingTokenCredential, DefaultAzureCredential};
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use std::sync::Arc;
 
@@ -25,9 +25,14 @@ async fn main() -> azure_core::Result<()> {
     let creds = Arc::new(DefaultAzureCredential::default());
     let auto_creds = Arc::new(AutoRefreshingTokenCredential::new(creds));
 
-    let blob_client = StorageClient::new_token_credential(&account, auto_creds)
-        .container_client(&container)
-        .blob_client(&blob);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container,
+        StorageCredentials::TokenCredential(auto_creds),
+    )
+    .build();
+
+    let blob_client = container_client.blob_client(&blob);
 
     trace!("Requesting blob");
     let content = blob_client.get_content().await?;

@@ -3,6 +3,7 @@ use crate::{
     prelude::*,
 };
 use azure_core::{date, headers::*, prelude::*, Method, RequestId, Response};
+use azure_storage::clients::finalize_request;
 use azure_storage::core::StoredAccessPolicyList;
 use time::OffsetDateTime;
 
@@ -15,14 +16,12 @@ operation! {
 impl GetACLBuilder {
     pub fn into_future(mut self) -> GetACL {
         Box::pin(async move {
-            let url = self.client.url()?;
+            let url = self.client.url();
 
             let mut headers = Headers::new();
             headers.add(self.lease_id);
 
-            let mut request = self
-                .client
-                .finalize_request(url, Method::Get, headers, None)?;
+            let mut request = finalize_request(url, Method::Get, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
             GetACLResponse::from_response(response).await

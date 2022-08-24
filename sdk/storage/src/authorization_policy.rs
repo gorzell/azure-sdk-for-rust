@@ -1,4 +1,4 @@
-use crate::clients::{ServiceType, StorageCredentials};
+use crate::clients::{StorageCredentials};
 use azure_core::error::{ErrorKind, ResultExt};
 use azure_core::Method;
 use azure_core::{headers::*, Context, Policy, PolicyResult, Request};
@@ -43,8 +43,6 @@ impl Policy for AuthorizationPolicy {
                         request.method(),
                         account,
                         key,
-                        ctx.get()
-                            .expect("ServiceType must be in the Context at this point"),
                     )?;
                     request.insert_header(AUTHORIZATION, auth)
                 }
@@ -80,15 +78,15 @@ impl Policy for AuthorizationPolicy {
     }
 }
 
+// TODO: Figure out where this logic should live.
 fn generate_authorization(
     h: &Headers,
     u: &Url,
     method: &Method,
     account: &str,
     key: &str,
-    service_type: &ServiceType,
 ) -> azure_core::Result<String> {
-    let str_to_sign = string_to_sign(h, u, method, account, service_type);
+    let str_to_sign = string_to_sign(h, u, method, account);
     let auth = crate::hmac::sign(&str_to_sign, key).context(
         azure_core::error::ErrorKind::Credential,
         "failed to sign the hmac",
@@ -100,26 +98,27 @@ fn add_if_exists<'a>(h: &'a Headers, key: &HeaderName) -> &'a str {
     h.get_optional_str(key).unwrap_or_default()
 }
 
+// TODO: Figure out where this logic should live.
+// FIXME: Something needs to handle that Table is special...
 #[allow(unknown_lints)]
 fn string_to_sign(
     h: &Headers,
     u: &Url,
     method: &Method,
     account: &str,
-    service_type: &ServiceType,
 ) -> String {
-    match service_type {
-        ServiceType::Table => {
-            format!(
-                "{}\n{}\n{}\n{}\n{}",
-                method.as_ref(),
-                add_if_exists(h, &CONTENT_MD5),
-                add_if_exists(h, &CONTENT_TYPE),
-                add_if_exists(h, &MS_DATE),
-                canonicalized_resource_table(account, u)
-            )
-        }
-        _ => {
+    // match service_type.as_str() {
+    //     "table" => {
+    //         format!(
+    //             "{}\n{}\n{}\n{}\n{}",
+    //             method.as_ref(),
+    //             add_if_exists(h, &CONTENT_MD5),
+    //             add_if_exists(h, &CONTENT_TYPE),
+    //             add_if_exists(h, &MS_DATE),
+    //             canonicalized_resource_table(account, u)
+    //         )
+    //     }
+    //     _ => {
             // content length must only be specified if != 0
             // this is valid from 2015-02-21
             let content_length = h
@@ -143,8 +142,6 @@ fn string_to_sign(
                 canonicalize_header(h),
                 canonicalized_resource(account, u)
             )
-        }
-    }
 }
 
 fn canonicalize_header(headers: &Headers) -> String {
@@ -164,9 +161,9 @@ fn canonicalize_header(headers: &Headers) -> String {
     result
 }
 
-fn canonicalized_resource_table(account: &str, u: &Url) -> String {
-    format!("/{}{}", account, u.path())
-}
+// fn canonicalized_resource_table(account: &str, u: &Url) -> String {
+//     format!("/{}{}", account, u.path())
+// }
 
 fn canonicalized_resource(account: &str, uri: &Url) -> String {
     let mut can_res: String = String::new();

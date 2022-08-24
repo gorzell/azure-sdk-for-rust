@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use azure_core::Method;
 use azure_core::{headers::*, prelude::*, RequestId};
+use azure_storage::clients::finalize_request;
 use time::OffsetDateTime;
 
 operation! {
@@ -13,7 +14,7 @@ operation! {
 impl BreakLeaseBuilder {
     pub fn into_future(mut self) -> BreakLease {
         Box::pin(async move {
-            let mut url = self.client.url()?;
+            let mut url = self.client.url();
 
             url.query_pairs_mut().append_pair("restype", "container");
             url.query_pairs_mut().append_pair("comp", "lease");
@@ -23,9 +24,7 @@ impl BreakLeaseBuilder {
             headers.add(self.lease_id);
             headers.add(self.lease_break_period);
 
-            let mut request = self
-                .client
-                .finalize_request(url, Method::Put, headers, None)?;
+            let mut request = finalize_request(url, Method::Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
 

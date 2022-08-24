@@ -1,4 +1,4 @@
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use futures::StreamExt;
 
@@ -10,8 +10,11 @@ async fn main() -> azure_core::Result<()> {
     let access_key =
         std::env::var("STORAGE_ACCESS_KEY").expect("Set env variable STORAGE_ACCESS_KEY first!");
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
-    let blob_service_client = storage_client.blob_service_client();
+    let blob_service_client = BlobServiceClientBuilder::new(
+        &account,
+        StorageCredentials::Key(account.clone(), access_key.clone()),
+    )
+    .build();
 
     let mut stream = blob_service_client.list_containers().into_stream();
 
@@ -20,7 +23,12 @@ async fn main() -> azure_core::Result<()> {
         for container in entry.containers {
             println!("container: {}", container.name);
 
-            let container_client = storage_client.container_client(container.name);
+            let container_client = ContainerClientBuilder::new(
+                &account,
+                &container.name,
+                StorageCredentials::Key(account.clone(), access_key.clone()),
+            )
+            .build();
 
             let mut blob_stream = container_client.list_blobs().into_stream();
             while let Some(blob_entry) = blob_stream.next().await {

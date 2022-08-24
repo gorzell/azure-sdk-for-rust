@@ -1,6 +1,5 @@
 use crate::{blob::operations::*, prelude::*};
-use azure_core::{headers::Headers, prelude::*, Body, Context, Method, Request, Response, Url};
-use azure_storage::core::prelude::*;
+use azure_core::{prelude::*, Context, Request, Response};
 
 #[derive(Debug, Clone)]
 pub struct BlobLeaseClient {
@@ -32,10 +31,6 @@ impl BlobLeaseClient {
         self.lease_id
     }
 
-    pub fn storage_client(&self) -> &StorageClient {
-        self.blob_client.storage_client()
-    }
-
     pub fn container_client(&self) -> &ContainerClient {
         self.blob_client.container_client()
     }
@@ -46,17 +41,6 @@ impl BlobLeaseClient {
 
     pub(crate) fn url(&self) -> azure_core::Result<url::Url> {
         self.blob_client.url()
-    }
-
-    pub(crate) fn finalize_request(
-        &self,
-        url: Url,
-        method: Method,
-        headers: Headers,
-        request_body: Option<Body>,
-    ) -> azure_core::Result<Request> {
-        self.blob_client
-            .finalize_request(url, method, headers, request_body)
     }
 
     pub(crate) async fn send(

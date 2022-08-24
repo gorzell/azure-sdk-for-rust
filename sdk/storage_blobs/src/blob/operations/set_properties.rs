@@ -6,6 +6,7 @@ use azure_core::{
     },
     Method, RequestId,
 };
+use azure_storage::clients::finalize_request;
 use std::convert::{TryFrom, TryInto};
 use time::OffsetDateTime;
 
@@ -67,9 +68,7 @@ impl SetPropertiesBuilder {
             headers.add(self.if_match);
             headers.add(self.if_tags);
 
-            let mut request = self
-                .client
-                .finalize_request(url, Method::Put, headers, None)?;
+            let mut request = finalize_request(url, Method::Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
             response.headers().try_into()

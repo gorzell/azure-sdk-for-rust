@@ -6,7 +6,7 @@ use azure_core::{
     error::{ErrorKind, ResultExt},
 };
 use azure_identity::DefaultAzureCredential;
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 
 #[tokio::main]
@@ -28,9 +28,13 @@ async fn main() -> azure_core::Result<()> {
         .get_token("https://storage.azure.com/")
         .await?;
 
-    let blob_client = StorageClient::new_bearer_token(&account, bearer_token.token.secret())
-        .container_client(&container)
-        .blob_client(&blob);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container,
+        StorageCredentials::BearerToken(bearer_token.token.secret().into()),
+    )
+    .build();
+    let blob_client = container_client.blob_client(&blob);
 
     trace!("Requesting blob");
 

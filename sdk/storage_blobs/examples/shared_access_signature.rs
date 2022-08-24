@@ -1,4 +1,5 @@
 use azure_core::date;
+use azure_storage::clients::StorageCredentials;
 use azure_storage::core::prelude::*;
 use azure_storage_blobs::prelude::*;
 use time::OffsetDateTime;
@@ -26,11 +27,16 @@ fn code() -> azure_core::Result<()> {
     let now = OffsetDateTime::now_utc() - date::duration_from_minutes(15);
     let later = now + date::duration_from_hours(1);
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
-    let container_client = storage_client.container_client(&container_name);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container_name,
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
     let blob_client = container_client.blob_client(&blob_name);
 
-    let sas = storage_client
+    let sas = container_client
+        .storage_credentials()
         .shared_access_signature(
             AccountSasResource::Blob,
             AccountSasResourceType::Object,
@@ -74,7 +80,7 @@ fn code() -> azure_core::Result<()> {
         .protocol(SasProtocol::HttpHttps);
 
     println!("container sas token: {}", sas.token());
-    let url = container_client.generate_signed_container_url(&sas)?;
+    let url = container_client.generate_signed_container_url(&sas);
     println!("container level url: '{}'", url);
 
     Ok(())

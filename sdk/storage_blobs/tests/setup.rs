@@ -1,5 +1,5 @@
 use azure_identity::DefaultAzureCredential;
-use azure_storage::clients::{StorageClient, StorageCredentials};
+use azure_storage::clients::StorageCredentials;
 use std::sync::Arc;
 
 pub fn initialize(transaction_name: impl Into<String>) -> azure_core::Result<StorageClient> {

@@ -1,4 +1,4 @@
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use futures::StreamExt;
 use serde::Serialize;
@@ -17,8 +17,11 @@ async fn main() -> azure_core::Result<()> {
     let access_key =
         std::env::var("STORAGE_ACCESS_KEY").expect("Set env variable STORAGE_ACCESS_KEY first!");
 
-    let storage_client = StorageClient::new_access_key(&account, &access_key);
-    let blob_service_client = storage_client.blob_service_client();
+    let blob_service_client = BlobServiceClientBuilder::new(
+        &account,
+        StorageCredentials::Key(account.clone(), access_key.clone()),
+    )
+    .build();
 
     let response = blob_service_client
         .list_containers()
@@ -28,8 +31,14 @@ async fn main() -> azure_core::Result<()> {
         .expect("stream failed")?;
     println!("response = {:#?}", response);
 
-    let response = storage_client
-        .container_client("$logs")
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        "$logs",
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
+
+    let response = container_client
         .list_blobs()
         .into_stream()
         .next()

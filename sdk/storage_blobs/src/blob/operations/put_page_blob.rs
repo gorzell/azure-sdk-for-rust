@@ -3,6 +3,7 @@ use azure_core::{
     headers::{Headers, BLOB_CONTENT_LENGTH, BLOB_TYPE},
     prelude::*,
 };
+use azure_storage::clients::finalize_request;
 
 operation! {
     PutPageBlob,
@@ -39,9 +40,7 @@ impl PutPageBlobBuilder {
             headers.add(self.lease_id);
             headers.add(self.sequence_number);
 
-            let mut request =
-                self.client
-                    .finalize_request(url, azure_core::Method::Put, headers, None)?;
+            let mut request = finalize_request(url, azure_core::Method::Put, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
             PutBlobResponse::from_headers(response.headers())

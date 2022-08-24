@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use azure_core::{headers::*, prelude::*, RequestId};
+use azure_storage::clients::finalize_request;
 use azure_storage::xml::read_xml;
 use time::OffsetDateTime;
 
@@ -24,9 +25,7 @@ impl GetTagsBuilder {
             headers.add(self.lease_id);
             headers.add(self.if_tags);
 
-            let mut request =
-                self.client
-                    .finalize_request(url, azure_core::Method::Get, headers, None)?;
+            let mut request = finalize_request(url, azure_core::Method::Get, headers, None)?;
 
             let response = self.client.send(&mut self.context, &mut request).await?;
 

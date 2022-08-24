@@ -3,7 +3,7 @@
 #[macro_use]
 extern crate log;
 
-use azure_storage::core::prelude::*;
+use azure_storage::clients::StorageCredentials;
 use azure_storage_blobs::prelude::*;
 use futures::future::try_join_all;
 
@@ -24,9 +24,13 @@ async fn main() -> azure_core::Result<()> {
         .nth(2)
         .expect("please specify blob name as command line parameter");
 
-    let blob_client = StorageClient::new_access_key(&account, &access_key)
-        .container_client(&container)
-        .blob_client(&blob_name);
+    let container_client = ContainerClientBuilder::new(
+        &account,
+        &container,
+        StorageCredentials::Key(account.clone(), access_key),
+    )
+    .build();
+    let blob_client = container_client.blob_client(&blob_name);
 
     let mut block_list = BlockList::default();
     let mut upload_block_futures = vec![];

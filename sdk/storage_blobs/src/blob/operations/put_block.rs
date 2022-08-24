@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use azure_core::{headers::*, prelude::*, Body, RequestId};
+use azure_storage::clients::finalize_request;
 use azure_storage::{headers::consistency_from_headers, ConsistencyCRC64, ConsistencyMD5};
 use time::OffsetDateTime;
 
@@ -23,7 +24,7 @@ impl PutBlockBuilder {
             let mut headers = Headers::new();
             headers.add(self.lease_id);
 
-            let mut request = self.client.finalize_request(
+            let mut request = finalize_request(
                 url,
                 azure_core::Method::Put,
                 headers,
